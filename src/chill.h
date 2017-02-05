@@ -1,7 +1,6 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
 #include <WiFiUdp.h>
-#include <ArduinoOTA.h>
 
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
@@ -9,7 +8,7 @@
 //#define LCD_I2C_ADDRESS 0x27
 #define LCD_I2C_ADDRESS 0x3F
 
-LiquidCrystal_I2C lcd(LCD_I2C_ADDRESS);
+LiquidCrystal_I2C lcd(LCD_I2C_ADDRESS, 16, 2);
 
 // For DS18B20 Sensors
 //#include <OneWire.h>
@@ -25,11 +24,6 @@ LiquidCrystal_I2C lcd(LCD_I2C_ADDRESS);
 
 #include <TimeLib.h>
 #include <NtpClientLib.h>
-
-// MQTT
-#include <PubSubClient.h>
-WiFiClient espClient;
-PubSubClient client(espClient);
 
 
 #define S2 9
@@ -74,14 +68,16 @@ DeviceAddress aChillAir = ADDR5;
 #define DHTTYPE           DHT22
 DHT_Unified dht(PIN_DHT22, DHTTYPE);
 
-const char* ssid = "NETGEAR80";
-const char* password = "dizzykayak157";
+#define WIFI_SSID "NETGEAR80"
+#define WIFI_PASSWORD "dizzykayak157"
 
 #define MQTT_SERVER "doober.space"
 #define MQTT_PORT 31989
 #define MQTT_USER "trogdor"
 #define MQTT_PASSWORD "pewpewpew"
 
+
+#define NTP_SERVER "130.102.128.23"
 
 float tTubeIn = 0;
 float tTubeReturn = 0;

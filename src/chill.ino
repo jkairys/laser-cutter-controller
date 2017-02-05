@@ -1,5 +1,6 @@
 #include "chill.h"
 #include <IOThing.h>
+#include <EEPROM.h>
 
 IOThing iot("trogdor3");
 
@@ -16,14 +17,14 @@ void dump_sensors(){
   int numberOfDevices = 0;
   numberOfDevices = sensors.getDeviceCount();
   DeviceAddress tempDeviceAddress;
-  client.publish(DEBUG, ("Found " + String(numberOfDevices) + " devices.").c_str());
+  //client.publish(DEBUG, ("Found " + String(numberOfDevices) + " devices.").c_str());
 
   for(int i=0;i<numberOfDevices; i++){
     // Search the wire for address
     if(sensors.getAddress(tempDeviceAddress, i)){
       String tmp = "";
       fmtAddress(tempDeviceAddress, tmp);
-      client.publish(DEBUG, ("Device " + String(i) + " = " + tmp).c_str());
+      //client.publish(DEBUG, ("Device " + String(i) + " = " + tmp).c_str());
     }else{
       Serial.print("Found ghost device at ");
       Serial.print(i, DEC);
@@ -64,88 +65,6 @@ void set_chiller(byte state){
   displayState();
 }
 
-void mqtt_callback(char* topic, byte* payload, unsigned int length) {
-  String tmp;
-  tmp = String(topic);
-
-  Serial.println(topic);
-  tmp.replace("trogdor/settings/","");
-
-  char buf[16] = "";
-  int i = 0;
-  for (i = 0; i < length; i++) {
-    buf[i] = (char)payload[i];
-  }
-  buf[i] = '\0';
-  String pl = String(buf);
-  Serial.println(pl);
-
-  if(tmp == "run"){
-    //Serial.println("Run: " + pl);
-    //run_duration = pl.toInt();
-    if(pl.toInt() > 0){
-      set_chiller(CHILLER_ON);
-    }else{
-      set_chiller(CHILLER_OFF);
-    }
-  }
-
-  if(tmp == "target"){
-    //Serial.println("Run: " + pl);
-    tTubeTarget = pl.toFloat();
-    integral = 0;
-  }
-
-}
-
-void setup_mqtt(){
-  client.setServer("doober.space", 31989);
-  client.setCallback(mqtt_callback);
-
-  while (!client.connected()) {
-    Serial.print("Attempting MQTT connection...");
-    // Attempt to connect
-    if (client.connect("trogtroller2", "trogdor", "pewpewpew")) {
-      Serial.println("connected");
-      // Once connected, publish an announcement...
-      //client.publish("garden/greenhouse/status", "online");
-      // ... and resubscribe
-      client.subscribe("trogdor/settings/#");
-    } else {
-      lcd.clear();
-      lcd.print("Jethro MQTT Fail");
-      lcd.setCursor(0,1);
-      lcd.print("trying again");
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
-      // Wait 5 seconds before retrying
-      delay(5000);
-    }
-  }
-}
-
-void setup_ntp(){
-  NTP.onNTPSyncEvent([](NTPSyncEvent_t error) {
-    if (error) {
-      Serial.print("Time Sync error: ");
-      if (error == noResponse)
-        Serial.println("NTP server not reachable");
-      else if (error == invalidAddress)
-        Serial.println("Invalid NTP server address");
-    }
-    else {
-      Serial.print("Got NTP time: ");
-      Serial.println(NTP.getTimeDateString(NTP.getLastNTPSync()));
-      ntp_ready = true;
-    }
-
-  });
-  NTP.begin("130.102.128.23", 1, false);
-  NTP.setInterval(60*60);
-  NTP.setTimeZone(10);
-
-}
 
 unsigned long last_read_ambient = 0;
 
@@ -202,6 +121,7 @@ void readSensors(){
   nextRead = millis() + ANALOG_READ_FREQ;
 }
 
+/*
 void mqtt_publish(char * path, String payload){
   char tmpPath[64];
   char tmpPay[64];
@@ -211,19 +131,21 @@ void mqtt_publish(char * path, String payload){
   payload.toCharArray(tmpPay, 64);
   client.publish(tmpPath, tmpPay);
 }
+*/
 
 void logSensors(){
+  //Serial.println("Logging sensors to MQTT");
 
   //Serial.println("{\n\t\"tResSump\": " + String(tResSump,1) + "\n\t\"tResIn\": " + String(tResIn,1) + "\n\t\"tChillSump\": " + String(tChillSump,1) + "\n\t\"tChillIn\": " + String(tChillIn,1) +"\n\t\"tAmbient\": " + String(tAmbient,1)+"\n\t\"rhAmbient\": " + String(hAmbient,1) +"\n\t\"dpAmbient\": " + String(dpAmbient,1) + "\n}");
-  mqtt_publish("tube/tIn",        String(tTubeIn,1));
-  mqtt_publish("tube/tReturn",    String(tTubeReturn,1));
-  mqtt_publish("chiller/tReturn", String(tChillReturn,1));
-  mqtt_publish("chiller/tSump",   String(tChillSump,1));
-  mqtt_publish("chiller/tAir",    String(tChillAir,1));
-  mqtt_publish("ambient/t",       String(tAmbient,1));
-  mqtt_publish("ambient/rh",      String(hAmbient,1));
-  mqtt_publish("ambient/dp",      String(dpAmbient,1));
-  mqtt_publish("chiller/run",     String(chiller_state));
+  iot.publish("tube/tIn",        String(tTubeIn,1));
+  iot.publish("tube/tReturn",    String(tTubeReturn,1));
+  iot.publish("chiller/tReturn", String(tChillReturn,1));
+  iot.publish("chiller/tSump",   String(tChillSump,1));
+  iot.publish("chiller/tAir",    String(tChillAir,1));
+  iot.publish("ambient/t",       String(tAmbient,1));
+  iot.publish("ambient/rh",      String(hAmbient,1));
+  iot.publish("ambient/dp",      String(dpAmbient,1));
+  iot.publish("chiller/run",     String(chiller_state));
 }
 
 void btnRed(){
@@ -283,13 +205,10 @@ void read_settings(String topic, String payload){
     tTubeTarget = payload.toFloat();
     integral = 0;
   }
+  write_settings_to_eeprom();
 }
 
 void setup() {
-
-  iot.useMQTT(MQTT_SERVER, MQTT_PORT, MQTT_USER, MQTT_PASSWORD,[](String topic, String payload){
-    read_settings(topic, payload);
-  });
 
   pinMode(PIN_RUNNING, OUTPUT);
   pinMode(PIN_BTN_RED,   INPUT);
@@ -320,21 +239,18 @@ void setup() {
   Serial.print  ("Sensor:       "); Serial.println(sensor.name);
 
   Wire.begin(LCD_SDA, LCD_SCL);
-  lcd.begin(16,2);
+  lcd.begin();
   lcd.backlight();
   lcd.print("WiFi Connecting");
 
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-  while (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    lcd.clear();
-    lcd.print("Cams Shitty Wifi");
-    lcd.setCursor(0,1);
-    lcd.print("...rebooting");
-    Serial.println("Connection Failed! Rebooting...");
-    delay(1000);
-    ESP.restart();
-  }
+  iot.useWiFi(WIFI_SSID, WIFI_PASSWORD);
+  iot.useOTA();
+  // Configure Network Time Protocol server
+  iot.useNTP(NTP_SERVER);
+  // Configure MQTT Server
+  iot.useMQTT(MQTT_SERVER, MQTT_PORT, MQTT_USER, MQTT_PASSWORD,[](String topic, String payload){
+    read_settings(topic, payload);
+  });
 
   lcd.clear();
 
@@ -345,43 +261,6 @@ void setup() {
   lcd.print("Connected");
   lcd.setCursor(0,1);
   lcd.print(WiFi.localIP());
-  delay(2000);
-  setup_mqtt();
-
-  // Hostname defaults to esp8266-[ChipID]
-  ArduinoOTA.setHostname("trogbrain2");
-
-  ArduinoOTA.onStart([]() {
-    lcd.clear();
-    lcd.print("Updating F/W");
-  });
-
-  ArduinoOTA.onEnd([]() {
-    lcd.clear();
-    lcd.print("Update Complete");
-  });
-
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    lcd.setCursor(0,1);
-    String tmp;
-    float pct = progress;
-    pct = 100 * pct / total;
-    tmp = String(pct, 0 ) + "%   ";
-    char p[16];
-    tmp.toCharArray(p, 16);
-    lcd.print(p);
-  });
-
-  ArduinoOTA.onError([](ota_error_t error) {
-    Serial.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("End Failed");
-  });
-
-  ArduinoOTA.begin();
 
   // interrupts for switches
   attachInterrupt(PIN_BTN_BLACK, btnBlack, RISING);
@@ -389,10 +268,24 @@ void setup() {
 
   circulator.setInverted(1);
 
-  setup_ntp();
+  //Serial.println("Searching for connected DS18B20 sensors");
+  //dump_sensors();
 
-  Serial.println("Searching for connected DS18B20 sensors");
-  dump_sensors();
+
+  EEPROM.begin(512);
+  read_settings_from_eeprom();
+}
+
+void write_settings_to_eeprom(){
+  // setpoint
+  EEPROM.put(0, tTubeTarget);
+  EEPROM.commit();
+}
+
+void read_settings_from_eeprom(){
+  // setpoint
+  EEPROM.get(0, tTubeTarget);
+  if(tTubeTarget < 10 || tTubeTarget > 25) tTubeTarget = 18;
 }
 
 float tmp = 0.0;
@@ -417,7 +310,6 @@ void runChiller(){
 }
 
 void loop() {
-  ArduinoOTA.handle();
 
   if(chiller_state == CHILLER_ON){
     runChiller();
@@ -434,8 +326,5 @@ void loop() {
     logSensors();
   }
 
-  if (!client.connected()) {
-    setup_mqtt();
-  }
-  client.loop();
+  iot.loop();
 }
