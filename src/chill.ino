@@ -148,15 +148,23 @@ void logSensors(){
   iot.publish("chiller/run",     String(chiller_state));
 }
 
+#define DEBOUNCING_RED 1
+unsigned long last_red_trigger = 0;
+
 void btnRed(){
   if(millis() < debounce){
     return;
   }
+
+  if(digitalRead(PIN_BTN_RED)) return;
   debounce = millis() + SWITCH_DEBOUNCE_MS;
+
   if(chiller_state == CHILLER_ON){
     set_chiller(CHILLER_OFF);
+    iot.publish("debug/switch-state","0");
   }else{
     set_chiller(CHILLER_ON);
+    iot.publish("debug/switch-state","1");
   }
 }
 
@@ -184,6 +192,7 @@ void nextScreen(){
 }
 
 void btnBlack(){
+  //detachInterrupts();
   if(millis() < debounce){
     return;
   }
@@ -207,6 +216,7 @@ void read_settings(String topic, String payload){
   }
   write_settings_to_eeprom();
 }
+
 
 void setup() {
 
@@ -240,7 +250,7 @@ void setup() {
 
   Wire.begin(LCD_SDA, LCD_SCL);
   lcd.begin();
-  lcd.backlight();
+  lcd.setBacklight(1);
   lcd.print("WiFi Connecting");
 
   iot.useWiFi(WIFI_SSID, WIFI_PASSWORD);
@@ -262,10 +272,7 @@ void setup() {
   lcd.setCursor(0,1);
   lcd.print(WiFi.localIP());
 
-  // interrupts for switches
-  attachInterrupt(PIN_BTN_BLACK, btnBlack, RISING);
-  attachInterrupt(PIN_BTN_RED,   btnRed,   FALLING);
-
+  //attachInterrupts();
   circulator.setInverted(1);
 
   //Serial.println("Searching for connected DS18B20 sensors");
@@ -324,6 +331,18 @@ void loop() {
   if(millis() > nextRead){
     readSensors();
     logSensors();
+  }
+
+  if(digitalRead(PIN_BTN_RED) == 0){
+    unsigned long waitUntil = millis() + 50;
+    while(millis() < waitUntil){};
+    if(digitalRead(PIN_BTN_RED) == 0) btnRed();
+  }
+
+  if(digitalRead(PIN_BTN_BLACK) == 0){
+    unsigned long waitUntil = millis() + 50;
+    while(millis() < waitUntil){};
+    if(digitalRead(PIN_BTN_BLACK) == 0) btnBlack();
   }
 
   iot.loop();

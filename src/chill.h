@@ -111,9 +111,9 @@ unsigned long nextRedraw = millis();
 
 #define PIN_CIRCULATOR PIN_K1
 
-#define SWITCH_DEBOUNCE_MS 500
+#define SWITCH_DEBOUNCE_MS 300
 
-unsigned long circulator_period = 120000;
+unsigned long circulator_period = 30000;
 SoftPWM circulator(PIN_CIRCULATOR, circulator_period);
 
 
