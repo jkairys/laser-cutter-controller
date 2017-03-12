@@ -93,6 +93,7 @@ float tTubeTarget = 15.0;
 #define SCREEN_SENSORS 1
 #define SCREEN_AMBIENT 2
 #define SCREEN_STATE 3
+#define SCREEN_WIFI 4
 
 #define CHILLER_OFF 0
 #define CHILLER_ON 1
@@ -107,7 +108,7 @@ unsigned long nextRedraw = millis();
 
 #define ANALOG_READ_FREQ 5000
 #define REDRAW_INTERVAL 3000
-#define MAX_SCREEN_NUM 3
+#define MAX_SCREEN_NUM 4
 
 #define PIN_CIRCULATOR PIN_K1
 

@@ -179,6 +179,12 @@ void redraw(){
     case SCREEN_STATE:
       displayState();
       break;
+    case SCREEN_WIFI:
+      lcd.clear();
+      lcd.print("WiFi IP:");
+      lcd.setCursor(0,1);
+      lcd.print(WiFi.localIP());
+      break;
   }
   nextRedraw = millis() + REDRAW_INTERVAL;
 }
@@ -334,15 +340,19 @@ void loop() {
   }
 
   if(digitalRead(PIN_BTN_RED) == 0){
-    unsigned long waitUntil = millis() + 50;
+    unsigned long waitUntil = millis() + 500;
     while(millis() < waitUntil){};
     if(digitalRead(PIN_BTN_RED) == 0) btnRed();
+    while(digitalRead(PIN_BTN_RED) == 0){
+    }
   }
 
   if(digitalRead(PIN_BTN_BLACK) == 0){
     unsigned long waitUntil = millis() + 50;
     while(millis() < waitUntil){};
     if(digitalRead(PIN_BTN_BLACK) == 0) btnBlack();
+    while(digitalRead(PIN_BTN_RED) == 0){
+    }
   }
 
   iot.loop();
